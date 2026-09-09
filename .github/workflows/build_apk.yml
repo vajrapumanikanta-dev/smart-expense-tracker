@@ -40,6 +40,26 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install --upgrade buildozer cython virtualenv
 
+      - name: Accept Android SDK Licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
+          if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then
+            cp -r "$ANDROID_SDK_ROOT/licenses"/* ~/.buildozer/android/platform/android-sdk/licenses/ 2>/dev/null || true
+          fi
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          echo "89337d1225500de4156d34fb49e359729baf964b" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          echo "d56f5187479451eabf01fb78717b9ee0f5814263" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          echo "d975438876767b72ec25d3016215a66782764611" > ~/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+          echo "601085b94cd77f6b54b86eab642d2d7b215b707f" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-arm-dbt-license
+          echo "33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > ~/.buildozer/android/platform/android-sdk/licenses/google-gdk-license
+          echo "e9acab5b5fbb560a72cfa4f23dc69c44938b6d43" > ~/.buildozer/android/platform/android-sdk/licenses/mips-android-sysimage-license
+          if command -v sdkmanager >/dev/null 2>&1; then
+            yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          fi
+
       - name: Prepare Environment File
         run: |
           if [ ! -f .env ]; then
@@ -51,7 +71,7 @@ jobs:
 
       - name: Build Android Debug APK
         run: |
-          buildozer -v android debug
+          yes 2>/dev/null | buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
