@@ -33,7 +33,9 @@ jobs:
           sudo apt-get install -y \
             git zip unzip autoconf libtool pkg-config \
             zlib1g-dev libncurses-dev libtinfo6 \
-            cmake libffi-dev libssl-dev build-essential ccache
+            cmake libffi-dev libssl-dev libsqlite3-dev \
+            libbz2-dev liblzma-dev libreadline-dev \
+            build-essential ccache
 
       - name: Install Buildozer & Cython
         run: |

@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,jpeg,svg,html,css,js,db,json,txt
 source.exclude_dirs = tests, .venv, .github, .git, exports, ml_models
 version = 1.0.0
-requirements = python3, sqlite3, flask, flask-sqlalchemy, flask-login, flask-wtf, wtforms, werkzeug, python-dotenv, requests, openpyxl
+requirements = python3, openssl, flask, flask-sqlalchemy, flask-login, flask-wtf, wtforms, werkzeug, python-dotenv, requests, openpyxl
 
 orientation = portrait
 osx.python_version = 3
@@ -25,7 +25,8 @@ p4a.port = 5000
 android.api = 34
 android.minapi = 24
 android.ndk = 25b
-android.archs = arm64-v8a, armeabi-v7a
+android.ndk_api = 24
+android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
 
