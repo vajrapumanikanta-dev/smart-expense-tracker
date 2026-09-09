@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports & Exports — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Financial Reports & Exports{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- Export Action Banner -->
+    <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+        <div>
+            <h3 style="font-size: 1.25rem; font-weight: 700;">Financial Statements & Data Exports</h3>
+            <small style="color: var(--text-sub);">Generate audit-ready spreadsheets, CSV raw data, and executive PDF summaries</small>
+        </div>
+
+        <!-- 1-Click Export Download Buttons -->
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="{{ url_for('reports.export_csv') }}" class="btn-custom btn-glass">
+                <i class="fa-solid fa-file-csv" style="color: #38bdf8;"></i> Export CSV
+            </a>
+            <a href="{{ url_for('reports.export_excel') }}" class="btn-custom btn-glass">
+                <i class="fa-solid fa-file-excel" style="color: #34d399;"></i> Export Excel (.xlsx)
+            </a>
+            <a href="{{ url_for('reports.export_pdf') }}" class="btn-custom btn-primary-glow">
+                <i class="fa-solid fa-file-pdf"></i> Download PDF Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtered Custom Export Card -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <h4 class="card-title"><i class="fa-solid fa-filter" style="color: var(--primary);"></i> Custom Filtered Export</h4>
+        </div>
+        <form method="GET" action="{{ url_for('reports.export_excel') }}" id="customExportForm">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" id="exp_start_date" class="form-control-custom">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" id="exp_end_date" class="form-control-custom">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" id="exp_category_id" class="form-select-custom">
+                        <option value="">All Categories</option>
+                        {% for c in categories %}
+                        <option value="{{ c.id }}">{{ c.category_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account</label>
+                    <select name="account_id" id="exp_account_id" class="form-select-custom">
+                        <option value="">All Accounts</option>
+                        {% for a in accounts %}
+                        <option value="{{ a.id }}">{{ a.account_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <button type="button" class="btn-custom btn-glass" onclick="downloadFiltered('csv')">
+                    <i class="fa-solid fa-download"></i> Filtered CSV
+                </button>
+                <button type="button" class="btn-custom btn-glass" onclick="downloadFiltered('excel')">
+                    <i class="fa-solid fa-file-excel"></i> Filtered Excel
+                </button>
+                <button type="button" class="btn-custom btn-primary-glow" onclick="downloadFiltered('pdf')">
+                    <i class="fa-solid fa-file-pdf"></i> Filtered PDF
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Monthly Executive Summary Card -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h4 class="card-title"><i class="fa-solid fa-chart-column" style="color: var(--primary-light);"></i> Executive Summary for {{ monthly_report.month_name }} {{ monthly_report.year }}</h4>
+                <small style="color: var(--text-sub);">Key financial performance indicators for the active period</small>
+            </div>
+        </div>
+
+        <div class="metrics-grid" style="margin-bottom: 24px;">
+            <div class="metric-card success">
+                <span class="metric-label">Total Inflow</span>
+                <div class="metric-value" style="color: var(--success);">{{ monthly_report.total_income|currency }}</div>
+            </div>
+            <div class="metric-card danger">
+                <span class="metric-label">Total Outflow</span>
+                <div class="metric-value" style="color: #f87171;">{{ monthly_report.total_expense|currency }}</div>
+            </div>
+            <div class="metric-card primary">
+                <span class="metric-label">Net Savings</span>
+                <div class="metric-value">{{ monthly_report.net_savings|currency }}</div>
+                <div class="metric-sub">{{ monthly_report.savings_rate }}% Savings Rate</div>
+            </div>
+            <div class="metric-card info">
+                <span class="metric-label">Health Score</span>
+                <div class="metric-value" style="color: {{ health_score.grade_color }};">{{ health_score.score }}/100</div>
+                <div class="metric-sub">{{ health_score.grade }}</div>
+            </div>
+        </div>
+
+        <h5 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--text-muted);">Top Spending Categories</h5>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            {% for cat in monthly_report.top_categories %}
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="font-weight: 600; font-size: 0.9rem;">{{ cat.name }}</div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <span style="font-size: 0.82rem; color: var(--text-sub);">{{ cat.pct }}% of total</span>
+                    <strong style="font-size: 1rem; color: var(--text-main); font-family: var(--font-heading);">{{ cat.amount|currency }}</strong>
+                </div>
+            </div>
+            {% else %}
+            <p style="color: var(--text-muted); font-size: 0.88rem;">No categorized expenses recorded in this period.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+function downloadFiltered(format) {
+    const sDate = document.getElementById('exp_start_date').value;
+    const eDate = document.getElementById('exp_end_date').value;
+    const cId = document.getElementById('exp_category_id').value;
+    const aId = document.getElementById('exp_account_id').value;
+
+    const params = new URLSearchParams();
+    if (sDate) params.append('start_date', sDate);
+    if (eDate) params.append('end_date', eDate);
+    if (cId) params.append('category_id', cId);
+    if (aId) params.append('account_id', aId);
+
+    let url = `/reports/export/${format}?` + params.toString();
+    window.location.href = url;
+}
+</script>
+{% endblock %}

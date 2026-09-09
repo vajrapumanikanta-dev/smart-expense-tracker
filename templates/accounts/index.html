@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}Accounts — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Account Management{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- Top Action Bar -->
+    <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h3 style="font-size: 1.25rem; font-weight: 700;">Total Consolidated Balance: <span style="color: var(--primary-light);">{{ total_balance|currency }}</span></h3>
+            <small style="color: var(--text-sub);">Across all {{ accounts|length }} active financial accounts and wallets</small>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-custom btn-glass" data-open-modal="transferModal">
+                <i class="fa-solid fa-arrow-right-arrow-left"></i> Transfer Funds
+            </button>
+            <button type="button" class="btn-custom btn-primary-glow" data-open-modal="newAccountModal">
+                <i class="fa-solid fa-plus"></i> New Account
+            </button>
+        </div>
+    </div>
+
+    <!-- Accounts Cards Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+        {% for stat in account_stats %}
+        {% set acc = stat.account %}
+        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="metric-icon-box primary" style="width: 44px; height: 44px; font-size: 20px;">
+                            {% if acc.account_type == 'Checking' %}
+                            <i class="fa-solid fa-building-columns"></i>
+                            {% elif acc.account_type == 'Savings' %}
+                            <i class="fa-solid fa-piggy-bank"></i>
+                            {% elif acc.account_type == 'Credit Card' %}
+                            <i class="fa-solid fa-credit-card"></i>
+                            {% elif acc.account_type == 'Cash' %}
+                            <i class="fa-solid fa-money-bill-1-wave"></i>
+                            {% else %}
+                            <i class="fa-solid fa-wallet"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 2px;">{{ acc.account_name }}</h4>
+                            <span class="badge-custom" style="background: rgba(255, 255, 255, 0.06); color: var(--text-muted); border: 1px solid var(--border-glass);">
+                                {{ acc.account_type }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" class="btn-custom btn-sm btn-glass" data-open-modal="editAccountModal{{ acc.id }}" title="Edit Account">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <form method="POST" action="{{ url_for('accounts.delete', id=acc.id) }}" style="display: inline;" onsubmit="return confirm('Delete account {{ acc.account_name }} and all its transactions?');">
+                            <button type="submit" class="btn-custom btn-sm btn-danger-glass" title="Delete Account">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <span style="font-size: 0.8rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">Current Balance</span>
+                    <div style="font-size: 1.9rem; font-weight: 800; font-family: var(--font-heading); color: {% if acc.balance >= 0 %}var(--text-main){% else %}#f87171{% endif %};">
+                        {{ acc.balance|currency }}
+                    </div>
+                </div>
+
+                <!-- Recent transactions micro-list -->
+                <div style="border-top: 1px solid var(--border-glass); padding-top: 12px; margin-bottom: 12px;">
+                    <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px;">
+                        Recent Activity ({{ stat.tx_count }} total)
+                    </div>
+                    {% for t in stat.recent_txs %}
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px;">
+                        <span style="color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">{{ t.description or 'Transaction' }}</span>
+                        <strong style="color: {% if t.transaction_type == 'income' %}var(--success){% else %}#f87171{% endif %};">
+                            {% if t.transaction_type == 'income' %}+{% else %}-{% endif %}{{ t.amount|currency }}
+                        </strong>
+                    </div>
+                    {% else %}
+                    <small style="color: var(--text-sub);">No transactions recorded on this account yet.</small>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <a href="{{ url_for('transactions.index', account_id=acc.id) }}" class="btn-custom btn-glass btn-sm" style="width: 100%; justify-content: center; margin-top: 6px;">
+                <i class="fa-solid fa-list"></i> View Account History
+            </a>
+        </div>
+
+        <!-- Edit Account Modal for this specific account -->
+        <div id="editAccountModal{{ acc.id }}" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header-row">
+                    <h3>Edit Account: {{ acc.account_name }}</h3>
+                    <button type="button" class="btn-close-modal" data-close-modal>&times;</button>
+                </div>
+                <form method="POST" action="{{ url_for('accounts.edit', id=acc.id) }}">
+                    <div class="form-group">
+                        <label class="form-label">Account Name</label>
+                        <input type="text" name="account_name" class="form-control-custom" value="{{ acc.account_name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Account Type</label>
+                        <select name="account_type" class="form-select-custom">
+                            <option value="Checking" {% if acc.account_type == 'Checking' %}selected{% endif %}>Checking</option>
+                            <option value="Savings" {% if acc.account_type == 'Savings' %}selected{% endif %}>Savings</option>
+                            <option value="Credit Card" {% if acc.account_type == 'Credit Card' %}selected{% endif %}>Credit Card</option>
+                            <option value="Cash" {% if acc.account_type == 'Cash' %}selected{% endif %}>Cash / Wallet</option>
+                            <option value="Investment" {% if acc.account_type == 'Investment' %}selected{% endif %}>Investment / Brokerage</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Adjust Current Balance ($)</label>
+                        <input type="number" step="0.01" name="balance" class="form-control-custom" value="{{ acc.balance }}" required>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn-custom btn-glass" data-close-modal>Cancel</button>
+                        <button type="submit" class="btn-custom btn-primary-glow">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- New Account Modal -->
+<div id="newAccountModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-row">
+            <h3><i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> Add New Account</h3>
+            <button type="button" class="btn-close-modal" data-close-modal>&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('accounts.add') }}">
+            <div class="form-group">
+                <label class="form-label">Account Name</label>
+                <input type="text" name="account_name" class="form-control-custom" placeholder="e.g. Chase Total Checking, Apple Card..." required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Account Type</label>
+                <select name="account_type" class="form-select-custom">
+                    <option value="Checking">Checking Account</option>
+                    <option value="Savings">High-Yield Savings</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Cash">Physical Cash / Wallet</option>
+                    <option value="Investment">Investment / Brokerage</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Initial Balance ($ USD)</label>
+                <input type="number" step="0.01" name="balance" class="form-control-custom" value="0.00" required>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn-custom btn-glass" data-close-modal>Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-glow">Create Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Fund Transfer Modal -->
+<div id="transferModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-row">
+            <h3><i class="fa-solid fa-arrow-right-arrow-left" style="color: var(--primary);"></i> Transfer Funds</h3>
+            <button type="button" class="btn-close-modal" data-close-modal>&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('accounts.transfer') }}">
+            <div class="form-group">
+                <label class="form-label">From Account (Source)</label>
+                <select name="from_account_id" class="form-select-custom" required>
+                    {% for a in accounts %}
+                    <option value="{{ a.id }}">{{ a.account_name }} ({{ a.balance|currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">To Account (Destination)</label>
+                <select name="to_account_id" class="form-select-custom" required>
+                    {% for a in accounts %}
+                    <option value="{{ a.id }}" {% if loop.index == 2 %}selected{% endif %}>{{ a.account_name }} ({{ a.balance|currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Transfer Amount ($ USD)</label>
+                <input type="number" step="0.01" name="amount" class="form-control-custom" placeholder="0.00" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Transfer Notes (Optional)</label>
+                <input type="text" name="notes" class="form-control-custom" placeholder="e.g. Monthly savings allocation">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn-custom btn-glass" data-close-modal>Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-glow">Execute Transfer</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

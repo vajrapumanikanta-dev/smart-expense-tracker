@@ -1,0 +1,25 @@
+[app]
+title = Smart Expense Tracker
+package.name = smart_expense_tracker
+package.domain = org.test
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,html,css,js,db,txt
+version = 0.1
+requirements = python3, flask, flask-sqlalchemy, flask-login, flask-wtf, wtforms, werkzeug, scikit-learn, pandas, numpy, openpyxl, reportlab, python-dotenv, requests, google-genai
+
+orientation = portrait
+osx.python_version = 3
+osx.kivy_version = 1.9.1
+fullscreen = 0
+android.permissions = INTERNET
+
+# (str) Bootstrap to use for android builds
+# Options are: sdl2, webview, service_only
+p4a.bootstrap = webview
+
+# (int) Port to use for webview bootstrap
+p4a.port = 5000
+
+[buildozer]
+log_level = 2
+warn_on_root = 1

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if transaction %}Edit Transaction{% else %}New Transaction{% endif %} — Smart Expense Tracker{% endblock %}
+{% block page_heading %}{% if transaction %}Edit Transaction{% else %}Add New Transaction{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 0 auto;">
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title">
+                    <i class="fa-solid {% if transaction %}fa-pen-to-square{% else %}fa-plus-circle{% endif %}" style="color: var(--primary);"></i>
+                    {% if transaction %}Update Transaction #{{ transaction.id }}{% else %}Record Financial Transaction{% endif %}
+                </h3>
+                <small style="color: var(--text-sub);">All values update your account balance and category budgets in real-time</small>
+            </div>
+            <a href="{{ url_for('transactions.index') }}" class="btn-custom btn-sm btn-glass">
+                <i class="fa-solid fa-arrow-left"></i> Back to Ledger
+            </a>
+        </div>
+
+        <form method="POST" action="{% if transaction %}{{ url_for('transactions.edit', id=transaction.id) }}{% else %}{{ url_for('transactions.add') }}{% endif %}">
+            
+            <!-- Type Selector (Expense vs Income) -->
+            <div class="form-group">
+                <label class="form-label">Transaction Type</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <label style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); background: rgba(15, 23, 42, 0.6); cursor: pointer; font-weight: 600;">
+                        <input type="radio" name="transaction_type" value="expense" {% if not transaction or transaction.transaction_type == 'expense' %}checked{% endif %}>
+                        <span style="color: #f87171;"><i class="fa-solid fa-arrow-up-right"></i> Expense</span>
+                    </label>
+                    <label style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-glass); background: rgba(15, 23, 42, 0.6); cursor: pointer; font-weight: 600;">
+                        <input type="radio" name="transaction_type" value="income" {% if transaction and transaction.transaction_type == 'income' %}checked{% endif %}>
+                        <span style="color: #34d399;"><i class="fa-solid fa-arrow-down-left"></i> Income</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="form-group">
+                <label class="form-label">Amount ($ USD)</label>
+                <input type="number" step="0.01" name="amount" class="form-control-custom" placeholder="0.00" value="{{ transaction.amount if transaction else '' }}" required autofocus style="font-size: 1.25rem; font-weight: 700;">
+            </div>
+
+            <!-- Description / Merchant Input with AI Auto-Categorize Hook -->
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label class="form-label" style="margin-bottom: 0;">Description / Merchant</label>
+                    <span id="aiCategoryBadge" class="ai-badge" style="display: none;"></span>
+                </div>
+                <input type="text" id="transaction_description" name="description" class="form-control-custom" placeholder="e.g. Whole Foods Groceries, Uber Ride, Tech Corp Payroll..." value="{{ transaction.description if transaction else '' }}" required>
+            </div>
+
+            <!-- Category and Account Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="transaction_category_id" name="category_id" class="form-select-custom" required>
+                        <option value="">Select Category</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if transaction and transaction.category_id == cat.id %}selected{% endif %}>
+                            {{ cat.category_name }} ({{ cat.category_type|capitalize }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Account</label>
+                    <select name="account_id" class="form-select-custom" required>
+                        {% for acc in accounts %}
+                        <option value="{{ acc.id }}" {% if transaction and transaction.account_id == acc.id %}selected{% endif %}>
+                            {{ acc.account_name }} ({{ acc.account_type }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Date Picker -->
+            <div class="form-group">
+                <label class="form-label">Transaction Date</label>
+                <input type="date" name="transaction_date" class="form-control-custom" value="{{ transaction.transaction_date.strftime('%Y-%m-%d') if transaction else '' }}">
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <a href="{{ url_for('transactions.index') }}" class="btn-custom btn-glass" style="flex: 1;">Cancel</a>
+                <button type="submit" class="btn-custom btn-primary-glow" style="flex: 2;">
+                    <i class="fa-solid fa-floppy-disk"></i> {% if transaction %}Save Changes{% else %}Record Transaction{% endif %}
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}

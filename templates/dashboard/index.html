@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Financial Overview{% endblock %}
+
+{% block content %}
+<!-- 1. Top Summary Metric Cards -->
+<div class="metrics-grid">
+    <!-- Total Balance Across All Accounts -->
+    <div class="metric-card primary">
+        <div class="metric-top">
+            <span class="metric-label">Net Balance</span>
+            <div class="metric-icon-box primary"><i class="fa-solid fa-building-columns"></i></div>
+        </div>
+        <div class="metric-value">{{ total_balance|currency }}</div>
+        <div class="metric-sub"><i class="fa-solid fa-wallet"></i> {{ accounts|length }} Active Accounts</div>
+    </div>
+
+    <!-- Monthly Income -->
+    <div class="metric-card success">
+        <div class="metric-top">
+            <span class="metric-label">Income ({{ current_month_name }})</span>
+            <div class="metric-icon-box success"><i class="fa-solid fa-arrow-down-left"></i></div>
+        </div>
+        <div class="metric-value" style="color: var(--success);">{{ month_income|currency }}</div>
+        <div class="metric-sub"><i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Total Inflows</div>
+    </div>
+
+    <!-- Monthly Expenses -->
+    <div class="metric-card danger">
+        <div class="metric-top">
+            <span class="metric-label">Expenses ({{ current_month_name }})</span>
+            <div class="metric-icon-box danger"><i class="fa-solid fa-arrow-up-right"></i></div>
+        </div>
+        <div class="metric-value" style="color: #f87171;">{{ month_expense|currency }}</div>
+        <div class="metric-sub"><i class="fa-solid fa-receipt"></i> Total Outflows</div>
+    </div>
+
+    <!-- Net Savings / Budget Status -->
+    <div class="metric-card info">
+        <div class="metric-top">
+            <span class="metric-label">Net Savings</span>
+            <div class="metric-icon-box info"><i class="fa-solid fa-piggy-bank"></i></div>
+        </div>
+        <div class="metric-value" style="color: {% if net_savings >= 0 %}var(--info){% else %}var(--danger){% endif %};">
+            {{ net_savings|currency }}
+        </div>
+        <div class="metric-sub">
+            {% if total_budget > 0 %}
+            <i class="fa-solid fa-chart-simple"></i> {{ budget_used_pct }}% of Monthly Budget
+            {% else %}
+            <i class="fa-solid fa-info-circle"></i> No budget set
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 2. Overspending Warning Alerts (if any) -->
+{% if overspending_alerts %}
+<div style="margin-bottom: 24px; display: flex; flex-direction: column; gap: 10px;">
+    {% for alert in overspending_alerts %}
+    <div class="alert-custom alert-{{ alert.severity }}" style="margin-bottom: 0;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div style="flex: 1;">
+            <strong>Budget Alert ({{ alert.category_name }}):</strong> {{ alert.message }}
+        </div>
+        <a href="{{ url_for('budgets.index') }}" class="btn-custom btn-sm btn-glass" style="margin-left: 10px;">Adjust Budget</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- 3. Primary Charts Section (Monthly Trend & Category Breakdown) -->
+<div class="charts-grid">
+    <!-- Monthly Expense Trend Line Chart -->
+    <div class="glass-card col-8">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--primary-light);"></i> 6-Month Income vs Expense Trend</h3>
+                <small style="color: var(--text-sub);">Historical cash-flow trajectory and monthly spending comparison</small>
+            </div>
+        </div>
+        <div style="height: 320px; position: relative;">
+            <canvas id="monthlyTrendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Expense By Category Doughnut Chart -->
+    <div class="glass-card col-4">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-chart-pie" style="color: #a855f7;"></i> Spending by Category</h3>
+                <small style="color: var(--text-sub);">Current distribution</small>
+            </div>
+        </div>
+        <div style="height: 320px; position: relative;">
+            <canvas id="categoryDoughnutChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 4. Secondary Charts Section (Income vs Expense Bars & Budget vs Actual) -->
+<div class="charts-grid">
+    <!-- Budget vs Actual Comparison -->
+    <div class="glass-card col-6">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-sliders" style="color: var(--warning);"></i> Budget vs Actual Spending</h3>
+                <small style="color: var(--text-sub);">Target budget limits compared with current actual spending</small>
+            </div>
+            <a href="{{ url_for('budgets.index') }}" class="btn-custom btn-sm btn-glass">Manage</a>
+        </div>
+        <div style="height: 280px; position: relative;">
+            <canvas id="budgetVsActualChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Account Balances Distribution -->
+    <div class="glass-card col-6">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-wallet" style="color: var(--info);"></i> Account Balance Distribution</h3>
+                <small style="color: var(--text-sub);">Asset distribution across checking, savings, wallets and credit</small>
+            </div>
+            <a href="{{ url_for('accounts.index') }}" class="btn-custom btn-sm btn-glass">Accounts</a>
+        </div>
+        <div style="height: 280px; position: relative;">
+            <canvas id="accountBalancesChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 5. Bottom Section: Recent Transactions & AI Financial Health Insight Panel -->
+<div class="charts-grid">
+    <!-- Recent Transactions Table -->
+    <div class="glass-card col-8">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--primary-light);"></i> Recent Transactions</h3>
+                <small style="color: var(--text-sub);">Latest recorded incomes and expenditures</small>
+            </div>
+            <a href="{{ url_for('transactions.index') }}" class="btn-custom btn-sm btn-glass">View All</a>
+        </div>
+
+        <div class="table-responsive-custom">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th>Description</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in recent_transactions %}
+                    <tr>
+                        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ tx.transaction_date|format_date }}</td>
+                        <td>
+                            <div class="category-pill">
+                                <span class="category-dot" style="background: {{ tx.category.color if tx.category else '#64748b' }};"></span>
+                                <span>{{ tx.category.category_name if tx.category else 'Uncategorized' }}</span>
+                            </div>
+                        </td>
+                        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ tx.account.account_name if tx.account else '—' }}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span>{{ tx.description or '—' }}</span>
+                                {% if tx.is_anomaly %}
+                                <span class="badge-custom badge-anomaly" title="Flagged as unusual by ML Isolation Forest">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> ML Outlier
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td style="text-align: right; font-weight: 700; font-family: var(--font-heading);">
+                            {% if tx.transaction_type == 'income' %}
+                            <span style="color: var(--success);">+{{ tx.amount|currency }}</span>
+                            {% else %}
+                            <span style="color: #f87171;">-{{ tx.amount|currency }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                            No transactions recorded yet. Click <strong>Quick AI Entry</strong> or <strong>New Transaction</strong> to get started!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- AI Financial Health & Quick Insights -->
+    <div class="glass-card col-4">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-heart-pulse" style="color: #ec4899;"></i> Financial Health</h3>
+                <small style="color: var(--text-sub);">Algorithmic Score</small>
+            </div>
+            <a href="{{ url_for('ai.monthly_report') }}" class="ai-badge">Full Report</a>
+        </div>
+
+        <div class="health-score-card">
+            <div class="health-score-circle" style="border-color: {{ health_score.grade_color }}; box-shadow: 0 0 20px {{ health_score.grade_color }}40;">
+                <div class="health-score-num" style="color: {{ health_score.grade_color }};">{{ health_score.score }}</div>
+                <div class="health-score-max">/ 100</div>
+            </div>
+            <div style="font-weight: 700; font-size: 1.1rem; color: {{ health_score.grade_color }}; margin-bottom: 4px;">
+                {{ health_score.grade }}
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 16px;">
+                Savings Rate: {{ health_score.savings_rate }}% | Budget Adherence: {{ health_score.budget_score }}/30
+            </p>
+        </div>
+
+        <!-- AI Insights List -->
+        <div style="border-top: 1px solid var(--border-glass); padding-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-sub); letter-spacing: 0.05em;">
+                <i class="fa-solid fa-sparkles" style="color: var(--primary-light);"></i> Active AI Insights
+            </div>
+            {% for ins in ai_insights %}
+            <div style="padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="font-size: 0.88rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">{{ ins.title }}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">{{ ins.message }}</div>
+            </div>
+            {% else %}
+            <div style="font-size: 0.82rem; color: var(--text-sub); text-align: center; padding: 10px;">
+                All systems healthy. Add more transactions to unlock deeper pattern intelligence.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

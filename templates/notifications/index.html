@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Notification Center — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Notification Center{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+
+    <!-- Notification Actions Header -->
+    <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+        <div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 2px;">
+                <i class="fa-solid fa-bell" style="color: var(--primary);"></i> Alerts & Activity Feed
+            </h3>
+            <small style="color: var(--text-sub);">Budget threshold warnings, recurring bill due dates, and ML outlier alerts</small>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <form method="POST" action="{{ url_for('notifications.mark_all_read') }}">
+                <button type="submit" class="btn-custom btn-glass btn-sm">
+                    <i class="fa-solid fa-check-double"></i> Mark All as Read
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+        {% for notif in notifications %}
+        <div class="glass-card notif-card {% if not notif.is_read %}notif-unread{% endif %}" id="notif-row-{{ notif.id }}" style="padding: 18px 20px; transition: var(--transition); border-left: 4px solid {% if notif.type == 'anomaly' or notif.type == 'budget_alert' %}var(--danger){% elif notif.type == 'recurring_reminder' %}var(--warning){% elif notif.type == 'goal_reminder' %}var(--success){% else %}var(--primary){% endif %};">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+                <div style="display: flex; gap: 14px; align-items: flex-start;">
+                    <!-- Notification Type Icon -->
+                    <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; background: {% if notif.type == 'anomaly' or notif.type == 'budget_alert' %}rgba(239, 68, 68, 0.15); color: #f87171;{% elif notif.type == 'recurring_reminder' %}rgba(245, 158, 11, 0.15); color: #fbbf24;{% elif notif.type == 'goal_reminder' %}rgba(16, 185, 129, 0.15); color: #34d399;{% else %}rgba(99, 102, 241, 0.15); color: var(--primary-light);{% endif %}">
+                        <i class="fa-solid {% if notif.type == 'anomaly' %}fa-shield-halved{% elif notif.type == 'budget_alert' %}fa-triangle-exclamation{% elif notif.type == 'recurring_reminder' %}fa-calendar-clock{% elif notif.type == 'goal_reminder' %}fa-bullseye{% else %}fa-bell{% endif %}"></i>
+                    </div>
+
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 0;">{{ notif.title }}</h4>
+                            {% if not notif.is_read %}
+                            <span class="badge-custom badge-anomaly" style="font-size: 0.68rem; padding: 2px 6px;">New</span>
+                            {% endif %}
+                        </div>
+                        <p style="font-size: 0.86rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 6px;">
+                            {{ notif.message }}
+                        </p>
+                        <small style="color: var(--text-sub); font-size: 0.76rem;">
+                            <i class="fa-solid fa-clock"></i> {{ notif.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Mark as read button if unread -->
+                {% if not notif.is_read %}
+                <button type="button" class="btn-custom btn-glass btn-sm" onclick="markAsRead({{ notif.id }})" title="Mark as Read" style="padding: 4px 10px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-check"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="glass-card" style="text-align: center; padding: 50px 20px;">
+            <div style="font-size: 2.5rem; color: var(--text-sub); margin-bottom: 12px;">
+                <i class="fa-solid fa-bell-slash"></i>
+            </div>
+            <h4 style="color: var(--text-main); margin-bottom: 6px;">No Notifications</h4>
+            <p style="color: var(--text-muted); font-size: 0.88rem; max-width: 400px; margin: 0 auto;">
+                You are all caught up! When budget thresholds are approached or recurring bills are due, you'll receive updates right here.
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function markAsRead(notifId) {
+    try {
+        const res = await fetch(`/notifications/mark-read/${notifId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+            const row = document.getElementById(`notif-row-${notifId}`);
+            if (row) {
+                row.classList.remove('notif-unread');
+                const badge = row.querySelector('.badge-custom');
+                if (badge) badge.remove();
+                const btn = row.querySelector('button[onclick]');
+                if (btn) btn.remove();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to mark read:', e);
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block title %}Transactions — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Transaction Ledger{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- Filter & Search Bar Card -->
+    <div class="glass-card">
+        <form method="GET" action="{{ url_for('transactions.index') }}">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: flex-end;">
+                <!-- Search Query -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" class="form-control-custom" placeholder="Search merchant or description..." value="{{ search }}">
+                </div>
+
+                <!-- Category Filter -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" class="form-select-custom">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if selected_category_id == cat.id %}selected{% endif %}>{{ cat.category_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Account Filter -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Account</label>
+                    <select name="account_id" class="form-select-custom">
+                        <option value="">All Accounts</option>
+                        {% for acc in accounts %}
+                        <option value="{{ acc.id }}" {% if selected_account_id == acc.id %}selected{% endif %}>{{ acc.account_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Transaction Type Filter -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Type</label>
+                    <select name="type" class="form-select-custom">
+                        <option value="">All Types</option>
+                        <option value="expense" {% if selected_type == 'expense' %}selected{% endif %}>Expenses Only</option>
+                        <option value="income" {% if selected_type == 'income' %}selected{% endif %}>Income Only</option>
+                    </select>
+                </div>
+
+                <!-- Sort Filter -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Sort Order</label>
+                    <select name="sort_by" class="form-select-custom">
+                        <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Newest First</option>
+                        <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Oldest First</option>
+                        <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Highest Amount</option>
+                        <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Lowest Amount</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 8px;">
+                    <button type="submit" class="btn-custom btn-primary-glow" style="flex: 1;">
+                        <i class="fa-solid fa-filter"></i> Apply
+                    </button>
+                    <a href="{{ url_for('transactions.index') }}" class="btn-custom btn-glass" title="Reset Filters">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Transactions Table Card -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Transaction History</h3>
+                <small style="color: var(--text-sub);">Showing {{ transactions|length }} of {{ pagination.total }} records</small>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-custom btn-primary-glow btn-sm" data-open-modal="quickNlModal">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI Quick-Add
+                </button>
+                <a href="{{ url_for('transactions.add') }}" class="btn-custom btn-glass btn-sm">
+                    <i class="fa-solid fa-plus"></i> Add Transaction
+                </a>
+            </div>
+        </div>
+
+        <div class="table-responsive-custom">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th>Description</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr>
+                        <td style="color: var(--text-muted); white-space: nowrap;">{{ tx.transaction_date|format_date }}</td>
+                        <td>
+                            {% if tx.transaction_type == 'income' %}
+                            <span class="badge-custom badge-income"><i class="fa-solid fa-arrow-down-left"></i> Income</span>
+                            {% else %}
+                            <span class="badge-custom badge-expense"><i class="fa-solid fa-arrow-up-right"></i> Expense</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="category-pill">
+                                <span class="category-dot" style="background: {{ tx.category.color if tx.category else '#64748b' }};"></span>
+                                <span>{{ tx.category.category_name if tx.category else 'Uncategorized' }}</span>
+                            </div>
+                        </td>
+                        <td style="color: var(--text-muted);">{{ tx.account.account_name if tx.account else '—' }}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>{{ tx.description or '—' }}</span>
+                                {% if tx.is_anomaly %}
+                                <span class="badge-custom badge-anomaly" title="Flagged by ML Anomaly Detection">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> Outlier
+                                </span>
+                                {% endif %}
+                                {% if tx.is_recurring %}
+                                <span class="badge-custom" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3);">
+                                    <i class="fa-solid fa-rotate"></i> Recurring
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td style="text-align: right; font-weight: 700; font-family: var(--font-heading); font-size: 1rem;">
+                            {% if tx.transaction_type == 'income' %}
+                            <span style="color: var(--success);">+{{ tx.amount|currency }}</span>
+                            {% else %}
+                            <span style="color: #f87171;">-{{ tx.amount|currency }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <div style="display: inline-flex; gap: 6px;">
+                                <a href="{{ url_for('transactions.edit', id=tx.id) }}" class="btn-custom btn-sm btn-glass" title="Edit">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </a>
+                                <form method="POST" action="{{ url_for('transactions.delete', id=tx.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this transaction?');">
+                                    <button type="submit" class="btn-custom btn-sm btn-danger-glass" title="Delete">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            No transactions match your current search/filter criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid var(--border-glass); padding-top: 16px;">
+            <span style="font-size: 0.85rem; color: var(--text-sub);">
+                Page {{ pagination.page }} of {{ pagination.pages }}
+            </span>
+            <div style="display: flex; gap: 6px;">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('transactions.index', page=pagination.prev_num, search=search, category_id=selected_category_id, account_id=selected_account_id, type=selected_type, sort_by=sort_by) }}" class="btn-custom btn-sm btn-glass">
+                    <i class="fa-solid fa-chevron-left"></i> Previous
+                </a>
+                {% endif %}
+                {% if pagination.has_next %}
+                <a href="{{ url_for('transactions.index', page=pagination.next_num, search=search, category_id=selected_category_id, account_id=selected_account_id, type=selected_type, sort_by=sort_by) }}" class="btn-custom btn-sm btn-glass">
+                    Next <i class="fa-solid fa-chevron-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

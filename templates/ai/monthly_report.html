@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Monthly Report ({{ report.month_name }} {{ report.year }}) — Smart Expense Tracker{% endblock %}
+{% block page_heading %}AI Monthly Financial Report{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- 1. Month / Year Period Filter & Export Actions Banner -->
+    <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <form method="GET" action="{{ url_for('ai.monthly_report') }}" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label class="form-label" style="margin-bottom: 0; white-space: nowrap;"><i class="fa-solid fa-calendar"></i> Statement Period:</label>
+                <select name="month" class="form-select-custom" style="width: auto; min-width: 140px;" onchange="this.form.submit()">
+                    {% for m_num, m_name in months_list %}
+                    <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="year" class="form-select-custom" style="width: auto; min-width: 100px;" onchange="this.form.submit()">
+                    {% for y in years_list %}
+                    <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ url_for('reports.export_pdf') }}" class="btn-custom btn-primary-glow btn-sm">
+                <i class="fa-solid fa-file-pdf"></i> Download PDF
+            </a>
+            <a href="{{ url_for('reports.index') }}" class="btn-custom btn-glass btn-sm">
+                <i class="fa-solid fa-arrow-right"></i> Export Hub
+            </a>
+        </div>
+    </div>
+
+    <!-- 2. AI Executive Summary Narrative Box -->
+    <div class="glass-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.08)); border-color: rgba(99, 102, 241, 0.35);">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <div class="chat-avatar ai" style="width: 32px; height: 32px; font-size: 14px;">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0;">
+                AI Executive Statement Summary &bull; {{ report.month_name }} {{ report.year }}
+            </h3>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; color: var(--text-main); line-height: 1.6;">
+            {% for ins in report.insights %}
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+                <i class="fa-solid fa-sparkles" style="color: var(--primary-light); margin-top: 5px; font-size: 0.85rem;"></i>
+                <div>{{ ins }}</div>
+            </div>
+            {% else %}
+            <p style="color: var(--text-muted); margin-bottom: 0;">
+                During {{ report.month_name }} {{ report.year }}, you generated <strong>{{ report.total_income|currency }}</strong> in income and expended <strong>{{ report.total_expense|currency }}</strong>, yielding a net savings balance of <strong>{{ report.net_savings|currency }}</strong> ({{ report.savings_rate }}% savings rate).
+            </p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 3. Key Financial Statement Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card success">
+            <div class="metric-top">
+                <span class="metric-label">Total Inflow</span>
+                <div class="metric-icon-box success"><i class="fa-solid fa-arrow-down-left"></i></div>
+            </div>
+            <div class="metric-value" style="color: var(--success);">{{ report.total_income|currency }}</div>
+            <div class="metric-sub">Earned Inflows</div>
+        </div>
+
+        <div class="metric-card danger">
+            <div class="metric-top">
+                <span class="metric-label">Total Outflow</span>
+                <div class="metric-icon-box danger"><i class="fa-solid fa-arrow-up-right"></i></div>
+            </div>
+            <div class="metric-value" style="color: #f87171;">{{ report.total_expense|currency }}</div>
+            <div class="metric-sub">Total Expenditures</div>
+        </div>
+
+        <div class="metric-card primary">
+            <div class="metric-top">
+                <span class="metric-label">Net Surplus / Savings</span>
+                <div class="metric-icon-box primary"><i class="fa-solid fa-piggy-bank"></i></div>
+            </div>
+            <div class="metric-value">{{ report.net_savings|currency }}</div>
+            <div class="metric-sub"><strong>{{ report.savings_rate }}%</strong> Savings Rate</div>
+        </div>
+
+        <div class="metric-card info">
+            <div class="metric-top">
+                <span class="metric-label">Health Score</span>
+                <div class="metric-icon-box info"><i class="fa-solid fa-heart-pulse"></i></div>
+            </div>
+            <div class="metric-value" style="color: {{ health.grade_color }};">{{ health.score }}/100</div>
+            <div class="metric-sub">{{ health.grade }} Grade</div>
+        </div>
+    </div>
+
+    <!-- 4. 50/30/20 Rule Budget Balance Analysis -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h4 class="card-title"><i class="fa-solid fa-scale-balanced" style="color: #38bdf8;"></i> 50/30/20 Rule Allocation Benchmark</h4>
+                <small style="color: var(--text-sub);">Comparison against standard financial planning frameworks (50% Needs, 30% Wants, 20% Savings)</small>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 10px;">
+            <!-- Needs -->
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 700; color: #38bdf8;"><i class="fa-solid fa-house"></i> Needs (Essentials)</span>
+                    <span class="badge-custom badge-income">Target: 50%</span>
+                </div>
+                <div style="font-size: 1.4rem; font-weight: 800; font-family: var(--font-heading); margin-bottom: 6px;">
+                    {{ report.rule_50_30_20.needs.amount|currency }}
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                    Actual: <strong>{{ report.rule_50_30_20.needs.pct }}%</strong> of income
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden;">
+                    <div style="width: {{ [report.rule_50_30_20.needs.pct, 100]|min }}%; height: 100%; background: #38bdf8;"></div>
+                </div>
+            </div>
+
+            <!-- Wants -->
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 700; color: #a855f7;"><i class="fa-solid fa-film"></i> Wants (Discretionary)</span>
+                    <span class="badge-custom badge-income">Target: 30%</span>
+                </div>
+                <div style="font-size: 1.4rem; font-weight: 800; font-family: var(--font-heading); margin-bottom: 6px;">
+                    {{ report.rule_50_30_20.wants.amount|currency }}
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                    Actual: <strong>{{ report.rule_50_30_20.wants.pct }}%</strong> of income
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden;">
+                    <div style="width: {{ [report.rule_50_30_20.wants.pct, 100]|min }}%; height: 100%; background: #a855f7;"></div>
+                </div>
+            </div>
+
+            <!-- Savings / Investments -->
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 700; color: var(--success);"><i class="fa-solid fa-piggy-bank"></i> Savings & Growth</span>
+                    <span class="badge-custom badge-income">Target: 20%</span>
+                </div>
+                <div style="font-size: 1.4rem; font-weight: 800; font-family: var(--font-heading); margin-bottom: 6px;">
+                    {{ report.rule_50_30_20.savings.amount|currency }}
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                    Actual: <strong>{{ report.rule_50_30_20.savings.pct }}%</strong> of income
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden;">
+                    <div style="width: {{ [report.rule_50_30_20.savings.pct, 100]|min }}%; height: 100%; background: var(--success);"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Top Spending Categories Breakdown -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h4 class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Category Spending Portfolio</h4>
+                <small style="color: var(--text-sub);">Ranked allocation for {{ report.month_name }} {{ report.year }}</small>
+            </div>
+        </div>
+
+        <div class="table-responsive-custom">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Proportion of Expenses</th>
+                        <th style="text-align: right;">Total Amount</th>
+                        <th style="text-align: right;">% Share</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in report.top_categories %}
+                    <tr>
+                        <td style="font-weight: 600;">
+                            <div class="category-pill">
+                                <span class="category-dot" style="background: #6366f1;"></span>
+                                <span>{{ cat.name }}</span>
+                            </div>
+                        </td>
+                        <td style="width: 45%;">
+                            <div style="height: 8px; background: rgba(255, 255, 255, 0.06); border-radius: 4px; overflow: hidden;">
+                                <div style="width: {{ cat.pct }}%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--purple));"></div>
+                            </div>
+                        </td>
+                        <td style="text-align: right; font-weight: 700; font-family: var(--font-heading); font-size: 1rem;">
+                            {{ cat.amount|currency }}
+                        </td>
+                        <td style="text-align: right; color: var(--text-muted); font-weight: 600;">
+                            {{ cat.pct }}%
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                            No expense records logged in {{ report.month_name }} {{ report.year }}.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 6. AI Recommended Budget Optimizations -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h4 class="card-title"><i class="fa-solid fa-lightbulb" style="color: var(--warning);"></i> AI Budget Recommendations for Next Period</h4>
+                <small style="color: var(--text-sub);">Optimized budget thresholds calibrated against historical spending velocity</small>
+            </div>
+            <a href="{{ url_for('budgets.index') }}" class="btn-custom btn-primary-glow btn-sm">
+                <i class="fa-solid fa-sliders"></i> Apply to Budgets
+            </a>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+            {% for rec in recommendations %}
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 700; color: var(--text-main);">{{ rec.category_name }}</span>
+                        <span class="badge-custom {% if rec.category_type_rule == 'Needs' %}badge-income{% else %}badge-anomaly{% endif %}">
+                            {{ rec.category_type_rule }}
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 1.3rem; font-weight: 800; color: var(--primary-light); font-family: var(--font-heading);">
+                            {{ rec.recommended_budget|currency }}
+                        </span>
+                        <small style="color: var(--text-muted); font-size: 0.8rem;">
+                            (Historical Avg: {{ rec.historical_avg|currency }})
+                        </small>
+                    </div>
+                    <p style="color: var(--text-sub); font-size: 0.82rem; line-height: 1.4; margin-bottom: 0;">
+                        {{ rec.reason }}
+                    </p>
+                </div>
+            </div>
+            {% else %}
+            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 24px;">
+                Log transactions across multiple categories to activate automated budget suggestions.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block title %}ML Anomaly Scanner — Smart Expense Tracker{% endblock %}
+{% block page_heading %}ML Anomaly Scanner{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- 1. Header Banner with Trigger Scan Button -->
+    <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+        <div style="max-width: 680px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <div class="chat-avatar ai" style="width: 36px; height: 36px; font-size: 16px; background: linear-gradient(135deg, #f59e0b, #ef4444);">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0;">Unsupervised Machine Learning Outlier Detection</h3>
+            </div>
+            <p style="color: var(--text-sub); font-size: 0.88rem; margin-bottom: 0;">
+                Scans your spending patterns using Scikit-Learn Isolation Forest and statistical IQR/Z-score algorithms to instantly flag atypical spikes, duplicate charges, or out-of-character payments.
+            </p>
+        </div>
+
+        <button type="button" id="triggerScanBtn" class="btn-custom btn-primary-glow" style="padding: 12px 24px;">
+            <i class="fa-solid fa-radar"></i>
+            <span>Run Full ML Scan</span>
+        </button>
+    </div>
+
+    <!-- 2. Summary Metric Cards -->
+    <div class="metrics-grid">
+        <!-- Total Flagged Outliers -->
+        <div class="metric-card {% if anomalies %}warning{% else %}success{% endif %}">
+            <div class="metric-top">
+                <span class="metric-label">Flagged Anomalies</span>
+                <div class="metric-icon-box {% if anomalies %}warning{% else %}success{% endif %}">
+                    <i class="fa-solid {% if anomalies %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                </div>
+            </div>
+            <div class="metric-value">{{ anomalies|length }}</div>
+            <div class="metric-sub">
+                {% if anomalies %}
+                <span style="color: var(--warning);"><i class="fa-solid fa-flag"></i> Requires User Review</span>
+                {% else %}
+                <span style="color: var(--success);"><i class="fa-solid fa-shield-check"></i> All Normal</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Highest Outlier Amount -->
+        <div class="metric-card danger">
+            <div class="metric-top">
+                <span class="metric-label">Largest Flagged Spikes</span>
+                <div class="metric-icon-box danger"><i class="fa-solid fa-arrow-up-right-dots"></i></div>
+            </div>
+            <div class="metric-value" style="color: #f87171;">
+                {% if anomalies %}
+                    {% set max_anomaly = (anomalies | sort(attribute='amount', reverse=true) | first) %}
+                    {{ max_anomaly.amount|currency }}
+                {% else %}
+                    $0.00
+                {% endif %}
+            </div>
+            <div class="metric-sub">
+                {% if anomalies %}
+                    {{ max_anomaly.category_name }}
+                {% else %}
+                    No Spikes Recorded
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Detection Algorithm -->
+        <div class="metric-card primary">
+            <div class="metric-top">
+                <span class="metric-label">Model Configuration</span>
+                <div class="metric-icon-box primary"><i class="fa-solid fa-microchip"></i></div>
+            </div>
+            <div class="metric-value" style="font-size: 1.3rem;">Isolation Forest + IQR</div>
+            <div class="metric-sub"><i class="fa-solid fa-sliders"></i> Sensitivity: 5% Contamination</div>
+        </div>
+
+        <!-- System Risk Assessment -->
+        <div class="metric-card info">
+            <div class="metric-top">
+                <span class="metric-label">Pattern Security Status</span>
+                <div class="metric-icon-box info"><i class="fa-solid fa-lock"></i></div>
+            </div>
+            <div class="metric-value" style="font-size: 1.3rem; color: {% if anomalies|length > 3 %}#f87171{% elif anomalies %}var(--warning){% else %}var(--success){% endif %};">
+                {% if anomalies|length > 3 %}Elevated Variance{% elif anomalies %}Mild Outliers{% else %}Optimal Stability{% endif %}
+            </div>
+            <div class="metric-sub">Real-Time Data Protection</div>
+        </div>
+    </div>
+
+    <!-- 3. Anomalies List / Table Card -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h4 class="card-title"><i class="fa-solid fa-list-check" style="color: var(--warning);"></i> Detected Spending Anomalies</h4>
+                <small style="color: var(--text-sub);">Transactions flagged by the multi-variable anomaly scoring engine</small>
+            </div>
+        </div>
+
+        <div class="table-responsive-custom">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Reason / Model Trigger</th>
+                        <th>Severity</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="anomaliesTableBody">
+                    {% for a in anomalies %}
+                    <tr>
+                        <td style="color: var(--text-muted); font-size: 0.85rem; white-space: nowrap;">
+                            {{ a.date|format_date }}
+                        </td>
+                        <td>
+                            <div class="category-pill">
+                                <span class="category-dot" style="background: #f59e0b;"></span>
+                                <span>{{ a.category_name }}</span>
+                            </div>
+                        </td>
+                        <td style="font-weight: 600;">{{ a.description or '—' }}</td>
+                        <td style="font-weight: 700; color: #f87171; font-family: var(--font-heading); font-size: 1rem;">
+                            {{ a.amount|currency }}
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                {% for r in a.reasons %}
+                                <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--warning); font-size: 0.75rem;"></i> {{ r }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-custom {% if a.severity == 'high' %}badge-expense{% else %}badge-anomaly{% endif %}">
+                                {{ a.severity|upper }}
+                            </span>
+                        </td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <a href="{{ url_for('transactions.edit', id=a.transaction_id) }}" class="btn-custom btn-glass btn-sm" title="Review & Edit Transaction">
+                                <i class="fa-solid fa-pen-to-square"></i> Review
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <div style="font-size: 2.5rem; color: var(--success); margin-bottom: 12px;"><i class="fa-solid fa-circle-check"></i></div>
+                            <h4 style="color: var(--text-main); margin-bottom: 6px;">No Spending Anomalies Detected</h4>
+                            <p style="font-size: 0.88rem; max-width: 460px; margin: 0 auto; color: var(--text-sub);">
+                                Great job! All of your logged expenses are consistent with your expected category averages and spending cadence.
+                            </p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 4. ML Technical Architecture & Explainability Section -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <h4 class="card-title"><i class="fa-solid fa-code-branch" style="color: var(--primary-light);"></i> Anomaly Detection Engine Architecture</h4>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 0.85rem;">
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="font-weight: 700; color: var(--primary-light); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-tree"></i> 1. Scikit-Learn Isolation Forest
+                </div>
+                <p style="color: var(--text-muted); line-height: 1.5; margin-bottom: 0; font-size: 0.82rem;">
+                    Constructs an ensemble of isolation decision trees across multiple feature dimensions (amount, category index, day of week, day of month). Points with short path lengths are mathematically isolated as anomalies.
+                </p>
+            </div>
+
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-chart-column"></i> 2. Statistical IQR & Z-Score Filter
+                </div>
+                <p style="color: var(--text-muted); line-height: 1.5; margin-bottom: 0; font-size: 0.82rem;">
+                    Calculates upper Tukey bounds (Q3 + 1.5 * IQR) for each distinct expense category. Catches sudden spikes that exceed category norms even if transaction timing is ordinary.
+                </p>
+            </div>
+
+            <div style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: var(--radius-sm);">
+                <div style="font-weight: 700; color: var(--success); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-repeat"></i> 3. Duplicate & Velocity Shield
+                </div>
+                <p style="color: var(--text-muted); line-height: 1.5; margin-bottom: 0; font-size: 0.82rem;">
+                    Cross-references identical timestamps, merchant descriptors, and dollar amounts within 72-hour windows to identify unintended duplicate charges.
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const scanBtn = document.getElementById('triggerScanBtn');
+    if (!scanBtn) return;
+
+    scanBtn.addEventListener('click', async () => {
+        const originalHtml = scanBtn.innerHTML;
+        scanBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning Outliers...';
+        scanBtn.disabled = true;
+
+        try {
+            const res = await fetch('/ai/api/scan-anomalies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                // Show notification and refresh
+                alert(`ML Scan Completed! Found ${data.anomalies_found} anomalous transaction(s).`);
+                window.location.reload();
+            } else {
+                alert('Scan failed: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Scan error:', err);
+            alert('Failed to connect to the ML scanning service.');
+        } finally {
+            scanBtn.innerHTML = originalHtml;
+            scanBtn.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

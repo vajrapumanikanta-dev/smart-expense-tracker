@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}500 — Internal Server Error | Smart Expense Tracker{% endblock %}
+{% block page_heading %}Server Error{% endblock %}
+
+{% block content %}
+<div style="max-width: 540px; margin: 60px auto; text-align: center;">
+    <div class="glass-card" style="padding: 48px 32px;">
+        <div style="font-size: 5rem; font-weight: 800; font-family: var(--font-heading); color: #f87171; line-height: 1; margin-bottom: 12px;">
+            500
+        </div>
+        <h3 style="font-size: 1.4rem; margin-bottom: 12px;">Internal Intelligence Exception</h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; margin-bottom: 24px;">
+            An unexpected error occurred while calculating financial records. Our automated health monitors have logged the incident.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 12px;">
+            <a href="{{ url_for('dashboard.index') }}" class="btn-custom btn-primary-glow">
+                <i class="fa-solid fa-house"></i> Return to Dashboard
+            </a>
+            <a href="javascript:location.reload()" class="btn-custom btn-glass">
+                <i class="fa-solid fa-rotate-right"></i> Try Again
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

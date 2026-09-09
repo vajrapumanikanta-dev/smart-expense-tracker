@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+
+{% block title %}ML Expense Forecasting — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Machine Learning Expense Forecasting{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- 1. Top Metrics & Trend Horizon Selector -->
+    <div class="metrics-grid">
+        <!-- Predicted Next Month -->
+        <div class="metric-card primary">
+            <div class="metric-top">
+                <span class="metric-label">Projected Next Month</span>
+                <div class="metric-icon-box primary"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            </div>
+            <div class="metric-value">{{ forecast_data.predicted_next_month|currency }}</div>
+            <div class="metric-sub">
+                {% if forecast_data.avg_monthly_spending > 0 %}
+                    {% set diff = forecast_data.predicted_next_month - forecast_data.avg_monthly_spending %}
+                    {% if diff > 0 %}
+                        <span style="color: #f87171;"><i class="fa-solid fa-arrow-trend-up"></i> +{{ diff|currency }} vs 6-mo avg</span>
+                    {% else %}
+                        <span style="color: var(--success);"><i class="fa-solid fa-arrow-trend-down"></i> {{ diff|currency }} vs 6-mo avg</span>
+                    {% endif %}
+                {% else %}
+                    <span>Baseline Projection</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Historical Average -->
+        <div class="metric-card info">
+            <div class="metric-top">
+                <span class="metric-label">Historical Monthly Average</span>
+                <div class="metric-icon-box info"><i class="fa-solid fa-chart-simple"></i></div>
+            </div>
+            <div class="metric-value">{{ forecast_data.avg_monthly_spending|currency }}</div>
+            <div class="metric-sub"><i class="fa-solid fa-calculator"></i> Rolling Monthly Mean</div>
+        </div>
+
+        <!-- Trend Direction -->
+        <div class="metric-card {% if forecast_data.trend_direction == 'increasing' %}warning{% elif forecast_data.trend_direction == 'decreasing' %}success{% else %}primary{% endif %}">
+            <div class="metric-top">
+                <span class="metric-label">Spending Velocity</span>
+                <div class="metric-icon-box {% if forecast_data.trend_direction == 'increasing' %}warning{% elif forecast_data.trend_direction == 'decreasing' %}success{% else %}primary{% endif %}">
+                    <i class="fa-solid {% if forecast_data.trend_direction == 'increasing' %}fa-arrow-trend-up{% elif forecast_data.trend_direction == 'decreasing' %}fa-arrow-trend-down{% else %}fa-minus{% endif %}"></i>
+                </div>
+            </div>
+            <div class="metric-value" style="text-transform: capitalize;">
+                {{ forecast_data.trend_direction }}
+            </div>
+            <div class="metric-sub">
+                {% if forecast_data.trend_direction == 'increasing' %}
+                    <span style="color: var(--warning);"><i class="fa-solid fa-triangle-exclamation"></i> Spending trajectory rising</span>
+                {% elif forecast_data.trend_direction == 'decreasing' %}
+                    <span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> Outflows trending lower</span>
+                {% else %}
+                    <span><i class="fa-solid fa-check"></i> Stable expenditures</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Horizon Selection -->
+        <div class="metric-card glass-card" style="display: flex; flex-direction: column; justify-content: center;">
+            <span class="metric-label" style="margin-bottom: 8px;">Forecast Horizon</span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-custom btn-glass btn-sm horizon-btn active" data-horizon="3">3 Months</button>
+                <button type="button" class="btn-custom btn-glass btn-sm horizon-btn" data-horizon="6">6 Months</button>
+                <button type="button" class="btn-custom btn-glass btn-sm horizon-btn" data-horizon="12">12 Months</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Primary Forecast Visualizer Chart -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--primary-light);"></i> Historical vs Machine Learning Projected Trajectory</h3>
+                <small style="color: var(--text-sub);">Ordinary Least Squares regression with seasonal rolling momentum</small>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px; font-size: 0.82rem;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                    <span style="width: 12px; height: 12px; background: #6366f1; border-radius: 2px;"></span> Actual Historical
+                </span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                    <span style="width: 12px; height: 2px; border-top: 2px dashed #38bdf8;"></span> ML Projected
+                </span>
+            </div>
+        </div>
+
+        <div style="height: 380px; position: relative;">
+            <canvas id="forecastChartCanvas"></canvas>
+        </div>
+    </div>
+
+    <!-- 3. Granular Category Breakdown & ML Methodology -->
+    <div class="charts-grid">
+        
+        <!-- Category Projections Table -->
+        <div class="glass-card col-8">
+            <div class="card-header-flex">
+                <div>
+                    <h4 class="card-title"><i class="fa-solid fa-layer-group" style="color: #a855f7;"></i> Category-Level Forecasts</h4>
+                    <small style="color: var(--text-sub);">Projected next month allocations compared to historical monthly average</small>
+                </div>
+            </div>
+
+            <div class="table-responsive-custom">
+                <table class="glass-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th style="text-align: right;">Historical Monthly Avg</th>
+                            <th style="text-align: right;">Projected Next Month</th>
+                            <th style="text-align: right;">Expected Delta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoryForecastTableBody">
+                        {% for cat_name, c_data in forecast_data.category_forecasts.items() %}
+                        {% set delta = c_data.projected_next - c_data.avg_monthly %}
+                        <tr>
+                            <td style="font-weight: 600;">
+                                <div class="category-pill">
+                                    <span class="category-dot" style="background: #8b5cf6;"></span>
+                                    <span>{{ cat_name }}</span>
+                                </div>
+                            </td>
+                            <td style="text-align: right; color: var(--text-muted);">{{ c_data.avg_monthly|currency }}</td>
+                            <td style="text-align: right; font-weight: 700; color: var(--text-main);">{{ c_data.projected_next|currency }}</td>
+                            <td style="text-align: right; font-weight: 600;">
+                                {% if delta > 0 %}
+                                    <span style="color: #f87171;"><i class="fa-solid fa-arrow-up"></i> +{{ delta|currency }}</span>
+                                {% elif delta < 0 %}
+                                    <span style="color: var(--success);"><i class="fa-solid fa-arrow-down"></i> {{ delta|currency }}</span>
+                                {% else %}
+                                    <span style="color: var(--text-sub);">— Stable</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                Record more transactions across multiple months to populate category-level regression projections.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ML Explanation & Methodology -->
+        <div class="glass-card col-4">
+            <div class="card-header-flex">
+                <h4 class="card-title"><i class="fa-solid fa-microchip" style="color: var(--primary);"></i> ML Model Insights</h4>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.85rem; line-height: 1.5;">
+                <div style="padding: 12px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-sm);">
+                    <div style="font-weight: 700; color: var(--primary-light); margin-bottom: 4px;">
+                        <i class="fa-solid fa-brain"></i> Algorithmic Architecture
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 0; font-size: 0.8rem;">
+                        This forecast applies Linear Regression & Rolling Weighted Moving Averages to historical monthly outlays, capturing velocity and macro expense trends.
+                    </p>
+                </div>
+
+                <div>
+                    <strong style="color: var(--text-main); display: block; margin-bottom: 4px;">Key Variables Analyzed:</strong>
+                    <ul style="padding-left: 18px; color: var(--text-muted); font-size: 0.8rem;">
+                        <li>Multi-month aggregate expense trajectory</li>
+                        <li>Category spending momentum & weight</li>
+                        <li>Fixed recurring obligations</li>
+                        <li>Seasonality and velocity bounds</li>
+                    </ul>
+                </div>
+
+                <div style="border-top: 1px solid var(--border-glass); padding-top: 12px;">
+                    <small style="color: var(--text-sub); display: block; line-height: 1.4;">
+                        <em>* Projections are statistical estimates meant for planning purposes. Significant one-off lifestyle changes will adjust future model iterations.</em>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let forecastChartInstance = null;
+    const initialData = {{ forecast_data|tojson }};
+    
+    function renderForecastChart(data) {
+        const ctx = document.getElementById('forecastChartCanvas');
+        if (!ctx) return;
+
+        const allMonths = [];
+        const actualPoints = [];
+        const forecastPoints = [];
+
+        // Combine historical points
+        if (data.historical && data.historical.length > 0) {
+            data.historical.forEach(h => {
+                allMonths.push(h.month);
+                actualPoints.push(h.amount);
+                forecastPoints.push(null);
+            });
+
+            // Bridge point between historical and forecast
+            const lastHist = data.historical[data.historical.length - 1];
+            if (data.forecast && data.forecast.length > 0) {
+                // First forecast point starts from last historical for continuous line
+                forecastPoints[forecastPoints.length - 1] = lastHist.amount;
+            }
+        }
+
+        // Add forecast points
+        if (data.forecast && data.forecast.length > 0) {
+            data.forecast.forEach(f => {
+                allMonths.push(f.month);
+                actualPoints.push(null);
+                forecastPoints.push(f.amount);
+            });
+        }
+
+        if (forecastChartInstance) {
+            forecastChartInstance.destroy();
+        }
+
+        forecastChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: allMonths,
+                datasets: [
+                    {
+                        label: 'Actual Spending ($)',
+                        data: actualPoints,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#6366f1',
+                        borderWidth: 3
+                    },
+                    {
+                        label: 'ML Projected ($)',
+                        data: forecastPoints,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        borderDash: [6, 6],
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#38bdf8',
+                        borderWidth: 2.5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { callback: (val) => '$' + val.toLocaleString() }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 14, padding: 16 } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: $${parseFloat(ctx.raw || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    renderForecastChart(initialData);
+
+    // Horizon filter buttons
+    const horizonBtns = document.querySelectorAll('.horizon-btn');
+    horizonBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            horizonBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const h = btn.getAttribute('data-horizon');
+
+            try {
+                const res = await fetch(`/ai/api/forecast-data?horizon=${h}`);
+                if (res.ok) {
+                    const freshData = await res.json();
+                    renderForecastChart(freshData);
+                }
+            } catch (err) {
+                console.error('Failed to reload forecast:', err);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

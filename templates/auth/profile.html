@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Account Settings — Smart Expense Tracker{% endblock %}
+{% block page_heading %}Settings & Profile{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- User Profile Card -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <h3 class="card-title"><i class="fa-solid fa-user-gear" style="color: var(--primary-light);"></i> Personal Profile</h3>
+        </div>
+        <form method="POST" action="{{ url_for('auth.profile') }}">
+            <input type="hidden" name="action" value="update_profile">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control-custom" value="{{ current_user.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Address (Read-only)</label>
+                    <input type="email" class="form-control-custom" value="{{ current_user.email }}" disabled style="opacity: 0.65;">
+                </div>
+            </div>
+            <button type="submit" class="btn-custom btn-primary-glow">
+                <i class="fa-solid fa-floppy-disk"></i> Save Profile Details
+            </button>
+        </form>
+    </div>
+
+    <!-- Password Change Card -->
+    <div class="glass-card">
+        <div class="card-header-flex">
+            <h3 class="card-title"><i class="fa-solid fa-key" style="color: var(--warning);"></i> Security & Password</h3>
+        </div>
+        <form method="POST" action="{{ url_for('auth.profile') }}">
+            <input type="hidden" name="action" value="change_password">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input type="password" name="current_password" class="form-control-custom" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <input type="password" name="new_password" class="form-control-custom" placeholder="Min. 6 chars" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <input type="password" name="confirm_new_password" class="form-control-custom" placeholder="Confirm password" required minlength="6">
+                </div>
+            </div>
+            <button type="submit" class="btn-custom btn-glass">
+                <i class="fa-solid fa-shield-check"></i> Update Password
+            </button>
+        </form>
+    </div>
+
+    <!-- Demo Data Seeder Card -->
+    <div class="glass-card" style="border-color: rgba(99, 102, 241, 0.3);">
+        <div class="card-header-flex">
+            <div>
+                <h3 class="card-title"><i class="fa-solid fa-database" style="color: var(--primary);"></i> Sample Demo Data Generator</h3>
+                <small style="color: var(--text-muted); font-size: 0.85rem;">Instantly populate 90 days of realistic multi-account transactions, budgets, goals, recurring bills, and ML anomalies for presentations and testing.</small>
+            </div>
+        </div>
+        <form method="POST" action="{{ url_for('auth.seed_demo') }}">
+            <button type="submit" class="btn-custom btn-primary-glow" onclick="return confirm('Generate sample transactions and budgets for your account?');">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Populate Realistic Demo Dataset
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
