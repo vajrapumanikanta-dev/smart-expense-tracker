@@ -40,25 +40,47 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install --upgrade buildozer cython virtualenv
 
-      - name: Accept Android SDK Licenses
+      - name: Setup Android SDK and Accept Licenses
         run: |
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          mkdir -p "$SDK_DIR/cmdline-tools/latest"
+          mkdir -p "$SDK_DIR/tools/bin"
+          mkdir -p "$SDK_DIR/licenses"
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
-          mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
+
+          # 1. Install commandlinetools into latest
+          if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+            cp -r "$ANDROID_SDK_ROOT/cmdline-tools/latest"/* "$SDK_DIR/cmdline-tools/latest/"
+          else
+            curl -sSLo /tmp/cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q -o /tmp/cmdline-tools.zip -d /tmp/cmdline-tools-extracted
+            cp -r /tmp/cmdline-tools-extracted/cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
+            rm -rf /tmp/cmdline-tools.zip /tmp/cmdline-tools-extracted
+          fi
+
+          # 2. Create compatibility symlinks for Buildozer expecting tools/bin/sdkmanager
+          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
+          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" "$SDK_DIR/tools/bin/avdmanager"
+          chmod +x "$SDK_DIR/cmdline-tools/latest/bin/"* || true
+          chmod +x "$SDK_DIR/tools/bin/"* || true
+
+          # 3. Copy existing licenses or write standard license hashes
           if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then
-            cp -r "$ANDROID_SDK_ROOT/licenses"/* ~/.buildozer/android/platform/android-sdk/licenses/ 2>/dev/null || true
+            cp -r "$ANDROID_SDK_ROOT/licenses"/* "$SDK_DIR/licenses/" 2>/dev/null || true
           fi
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo "89337d1225500de4156d34fb49e359729baf964b" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo "d56f5187479451eabf01fb78717b9ee0f5814263" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo "84831b9409646a918e30573bab4c9c91346d8abd" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-          echo "d975438876767b72ec25d3016215a66782764611" > ~/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
-          echo "601085b94cd77f6b54b86eab642d2d7b215b707f" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-arm-dbt-license
-          echo "33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > ~/.buildozer/android/platform/android-sdk/licenses/google-gdk-license
-          echo "e9acab5b5fbb560a72cfa4f23dc69c44938b6d43" > ~/.buildozer/android/platform/android-sdk/licenses/mips-android-sysimage-license
-          if command -v sdkmanager >/dev/null 2>&1; then
-            yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          fi
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> "$SDK_DIR/licenses/android-sdk-license"
+          echo "89337d1225500de4156d34fb49e359729baf964b" >> "$SDK_DIR/licenses/android-sdk-license"
+          echo "d56f5187479451eabf01fb78717b9ee0f5814263" >> "$SDK_DIR/licenses/android-sdk-license"
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" >> "$SDK_DIR/licenses/android-sdk-preview-license"
+          echo "d975438876767b72ec25d3016215a66782764611" >> "$SDK_DIR/licenses/android-googletv-license"
+          echo "601085b94cd77f6b54b86eab642d2d7b215b707f" >> "$SDK_DIR/licenses/android-sdk-arm-dbt-license"
+          echo "33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> "$SDK_DIR/licenses/google-gdk-license"
+          echo "e9acab5b5fbb560a72cfa4f23dc69c44938b6d43" >> "$SDK_DIR/licenses/mips-android-sysimage-license"
+
+          # 4. Accept licenses and pre-install required platform and build-tools
+          yes | "$SDK_DIR/tools/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
+          yes | "$SDK_DIR/tools/bin/sdkmanager" --sdk_root="$SDK_DIR" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
 
       - name: Prepare Environment File
         run: |
