@@ -1,51 +1,12 @@
-# Python
+.buildozer/
+bin/
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environment variables & secrets
+*.pyc
+build-output.txt
+build.log
+*.log
+android/
 .env
-instance/
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Database
-database/*.db
-*.sqlite3
-
-# Exports
-exports/*
-!exports/.gitkeep
-
-# ML cache
-ml_models/*.pkl
-ml_models/*.joblib
-!ml_models/.gitkeep
-
-# IDEs
-.vscode/
 .idea/
-*.swp
-*.swo
+database/*.db
+exports/*.apk
